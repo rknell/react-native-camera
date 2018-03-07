@@ -54,7 +54,10 @@ export interface RNCameraProps {
 
     // -- BARCODE PROPS
     barCodeTypes?: Array<keyof BarCodeType>;
-    onBarCodeRead?(data: string, type: keyof BarCodeType): void;
+    onBarCodeRead?(event: {
+        data: string
+        type: keyof BarCodeType
+    }): void;
 
     // -- FACE DETECTION PROPS
 
@@ -67,7 +70,7 @@ export interface RNCameraProps {
     // -- ANDROID ONLY PROPS
 
     /** Android only */
-    ratio?: number;
+    ratio?: string;
     /** Android only */
     permissionDialogTitle?: string;
     /** Android only */
@@ -116,6 +119,13 @@ interface TakePictureOptions {
     quality?: number;
     base64?: boolean;
     exif?: boolean;
+    width?: number;
+    mirrorImage?: boolean;
+
+    /** Android only */
+    fixOrientation?: boolean;
+    /** iOS only */
+    forceUpOrientation?: boolean;
 }
 
 interface TakePictureResponse {
