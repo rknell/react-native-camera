@@ -10,7 +10,6 @@ All you need is to `import` `{ RNCamera }` from the `react-native-camera` module
 import React, { Component } from 'react';
 import {
   AppRegistry,
-  Dimensions,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -31,6 +30,9 @@ class BadInstagramCloneApp extends Component {
             flashMode={RNCamera.Constants.FlashMode.on}
             permissionDialogTitle={'Permission to use camera'}
             permissionDialogMessage={'We need your permission to use your camera phone'}
+            onGoogleVisionBarcodesDetected={({ barcodes }) => {
+              console.log(barcodes)
+            }}
         />
         <View style={{flex: 0, flexDirection: 'row', justifyContent: 'center',}}>
         <TouchableOpacity
@@ -180,11 +182,20 @@ Most cameras have a Auto Focus feature. It adjusts your camera lens position aut
 
 Use the `autoFocus` property to specify the auto focus setting of your camera. `RNCamera.Constants.AutoFocus.on` turns it ON, `RNCamera.Constants.AutoFocus.off` turns it OFF.
 
-#### `iOS` `captureAudio`
+#### `iOS` `autoFocusPointOfInterest`
 
-Values: `true` (Boolean), `false` (default)
+Values: Object `{ x: 0.5, y: 0.5 }`.
 
-Specifies whether or not audio should be captured with the video. If `true`, app will request for microphone permission along with video permission.
+Setting this property causes the auto focus feature of the camera to attempt to focus on the part of the image at this coordiate.
+
+Coordinates values are measured as floats from `0` to `1.0`.  `{ x: 0, y: 0 }` will focus on the top left of the image, `{ x: 1, y: 1 }` will be the bottom right. Values are based on landscape mode with the home button on the right—this applies even if the device is in portrait mode.
+
+#### `captureAudio`
+
+Values: boolean `true` (default) | `false`
+
+Specifies if audio recording permissions should be requested.
+Make sure to follow README instructions for audio recording permissions [here](../README.md).
 
 #### `flashMode`
 
@@ -250,6 +261,44 @@ By default a `Camera not authorized` message will be displayed when access to th
 
 By default a <ActivityIndicator> will be displayed while the component is waiting for the user to grant/deny access to the camera, if set displays the passed react element instead of the default one.
 
+### `iOS` `videoStabilizationMode`
+
+The video stabilization mode used for a video recording. The possible values are:
+
+   - `RNCamera.Constants.VideoStabilization['off']`
+   - `RNCamera.Constants.VideoStabilization['standard']`
+   - `RNCamera.Constants.VideoStabilization['cinematic']`
+   - `RNCamera.Constants.VideoStabilization['auto']`
+
+You can read more about each stabilization type here: https://developer.apple.com/documentation/avfoundation/avcapturevideostabilizationmode
+
+### `iOS` `defaultVideoQuality`
+
+This option specifies the quality of the video to be taken. The possible values are:
+
+  - `RNCamera.Constants.VideoQuality.2160p`.
+    - `ios` Specifies capture settings suitable for 2160p (also called UHD or 4K) quality (3840x2160 pixel) video output.
+    - `android` Quality level corresponding to the 2160p (3840x2160) resolution. (Android Lollipop and above only!).
+  - `RNCamera.Constants.VideoQuality.1080p`.
+    - `ios` Specifies capture settings suitable for 1080p quality (1920x1080 pixel) video output.
+    - `android` Quality level corresponding to the 1080p (1920 x 1080) resolution.
+  - `RNCamera.Constants.VideoQuality.720p`.
+    - `ios` Specifies capture settings suitable for 720p quality (1280x720 pixel) video output.
+    - `android` Quality level corresponding to the 720p (1280 x 720) resolution.
+  - `RNCamera.Constants.VideoQuality.480p`.
+    - `ios` Specifies capture settings suitable for VGA quality (640x480 pixel) video output.
+    - `android` Quality level corresponding to the 480p (720 x 480) resolution.
+  - `RNCamera.Constants.VideoQuality.4:3`.
+    - `ios` Specifies capture settings suitable for VGA quality (640x480 pixel) video output. (Same as RNCamera.Constants.VideoQuality.480p).
+    - `android` Quality level corresponding to the 480p (720 x 480) resolution but with video frame width set to 640.
+  - `RNCamera.Constants.VideoQuality.288p`.
+    - `ios` Specifies capture settings suitable for CIF quality (352x288 pixel) video output.
+    - `android` Not supported.
+
+If nothing is passed the device's highest camera quality will be used as default.
+Note: This solve the flicker video recording issue for iOS
+
+
 ### Native Event callbacks props
 
 #### `onCameraReady`
@@ -260,13 +309,45 @@ Function to be called when native code emit onCameraReady event, when camera is 
 
 Function to be called when native code emit onMountError event, when there is a problem mounting the camera.
 
+#### `Android` `onPictureTaken`
+
+Function to be called when native code emit onPictureTaken event, when camera has taken a picture.
+
 ### Bar Code Related props
 
 #### `onBarCodeRead`
 
 Will call the specified method when a barcode is detected in the camera's view.
 
-Event contains `data` (the data in the barcode) and `type` (the type of the barcode detected).
+Event contains the following fields
+- `data` - a textual representation of the barcode, if available
+- `rawData` - The raw data encoded in the barcode, if available
+- `type` - the type of the barcode detected
+- `bounds` -
+  - on iOS:
+
+        bounds:{
+          size:{
+            width:string,
+            height:string
+          }
+          origin:{
+            x:string,
+            y:string
+          }
+        }
+  - onAndroid:
+
+        bounds:[{x:string,y:string}]
+  	- on Android it just returns resultPoints:
+        - for barcodes:
+
+              bounds[0].x : left side of barcode.
+              bounds[1].x : right side of barcode
+        - counting for QRcodes:
+
+              1 2
+              0
 
 The following barcode types can be recognised:
 
@@ -284,12 +365,25 @@ The following barcode types can be recognised:
 - `itf14` (when available)
 - `datamatrix` (when available)
 
-The barcode type is provided in the `data` object.
 
 #### `barCodeTypes`
 
 An array of barcode types to search for. Defaults to all types listed above. No effect if `onBarCodeRead` is undefined.
 Example: `<RNCamera barCodeTypes={[RNCamera.Constants.BarCodeType.qr]} />`
+
+#### `Android` `onGoogleVisionBarcodesDetected`
+
+Like `onBarCodeRead`, but we will use Google Play Service Vision to scan barcodes, which is pretty fast on Android. Note: If you already set `onBarCodeRead`, this will be invalid.
+
+#### `Android` `googleVisionBarcodeType`
+
+Like `barCodeTypes`, but applies to the Google Play Service Vision barcode detector.
+Example: `<RNCamera googleVisionBarcodeType={RNCamera.Constants.GoogleVisionBarcodeDetection.BarcodeType.DATA_MATRIX} />`
+
+#### `Android` `googleVisionBarcodeMode`
+
+Change the mode in order to scan "inverted" barcodes. You can either change it to `alternate`, which will inverted the image data every second screen and be able to read both normal and inverted barcodes, or `inverted`, which will only read inverted barcodes.  Default is `normal`, which only reads "normal" barcodes. Note: this property only applies to the Google Vision barcode detector.
+Example: `<RNCamera googleVisionBarcodeMode={RNCamera.Constants.GoogleVisionBarcodeDetection.BarcodeMode.ALTERNATE} />`
 
 ### Face Detection Related props
 
@@ -325,7 +419,7 @@ Classification is determining whether a certain facial characteristic is present
 
 ### Text Recognition Related props
 
-Only available in Android. RNCamera uses the Google Mobile Vision frameworks for Text Recognition, you can read more info about it [here](https://developers.google.com/vision/android/text-overview).
+RNCamera uses the Google Mobile Vision frameworks for Text Recognition, you can read more info about it [here](https://developers.google.com/vision/android/text-overview).
 
 #### `onTextRecognized`
 
@@ -355,14 +449,21 @@ Supported options:
 
  - `skipProcessing` (android only, boolean). This property skips all image processing on android, this makes taking photos super fast, but you loose some of the information, width, height and the ability to do some processing on the image (base64, width, quality, mirrorImage, exif, etc)
 
+- `doNotSave` (boolean true or false). Use this with `true` if you do not want the picture to be saved as a file to cache. If no value is specified `doNotSave:false` is used. If you only need the base64 for the image, you can use this with `base64:true` and avoid having to save the file.
+
+ - `pauseAfterCapture` (boolean true or false).  If true, pause the preview layer immediately after capturing the image.  You will need to call `cameraRef.resumePreview()` before using the camera again. If no value is specified `pauseAfterCapture:false` is used.
+
+ - `orientation` (string or number). Specifies the orientation that us used for taking the picture. Possible values: `"portrait"`, `"portraitUpsideDown"`, `"landscapeLeft"` or `"landscapeRight"`.
 
 The promise will be fulfilled with an object with some of the following properties:
 
  - `width`: returns the image's width (taking image orientation into account)
  - `height`: returns the image's height (taking image orientation into account)
- - `uri`: returns the path to the image saved on your app's cache directory.
- - `base64`: returns the base64 representation of the image if required.
+ - `uri`: (string) the path to the image saved on your app's cache directory.
+ - `base64`: (string?) the base64 representation of the image if required.
  - `exif`: returns an exif map of the image if required.
+ - `pictureOrientation`: (number) the orientation of the picture
+ - `deviceOrientation`: (number) the orientation of the device
 
  #### `recordAsync([options]): Promise`
 
@@ -390,6 +491,8 @@ The promise will be fulfilled with an object with some of the following properti
      - `ios` Specifies capture settings suitable for CIF quality (352x288 pixel) video output.
      - `android` Not supported.
 
+ - `orientation` (string or number). Specifies the orientation that us used for recording the video. Possible values: `"portrait"`, `"portraitUpsideDown"`, `"landscapeLeft"` or `"landscapeRight"`.
+
     If nothing is passed the device's highest camera quality will be used as default.
  - `iOS` `codec`. This option specifies the codec of the output video. Setting the codec is only supported on `iOS >= 10`. The possible values are:
    - `RNCamera.Constants.VideoCodec['H264']`
@@ -397,28 +500,55 @@ The promise will be fulfilled with an object with some of the following properti
    - `RNCamera.Constants.VideoCodec['HVEC']` (`iOS >= 11`)
    - `RNCamera.Constants.VideoCodec['AppleProRes422']` (`iOS >= 11`)
    - `RNCamera.Constants.VideoCodec['AppleProRes4444']` (`iOS >= 11`)
+
+ - `mirrorVideo` (boolean true or false). Use this with `true` if you want the resulting video to be mirrored (inverted in the vertical axis). If no value is specified `mirrorVideo:false` is used.
+
  - `maxDuration` (float greater than 0). Specifies the maximum duration of the video to be recorded in seconds. If nothing is specified, no time limit will be used.
 
- - `maxFileSize` (int greater than 0). Specifies the maximum file size, in bytes, of the video to be recorded. For 1mb, for example, use 1*1024*1024. If nothing is specified, no size limit will be used.
+ - `maxFileSize` (int greater than 0). Specifies the maximum file size, in bytes, of the video to be recorded. For 1mb, for example, use 1\*1024\*1024. If nothing is specified, no size limit will be used.
 
- - `mute` (any value). If this flag is given in the option with any value, the video to be recorded will be mute. If nothing is specified, video will NOT be muted.
+ - `mute` (any value). (*This value will automatically be set to true if the `captureAudio` has not been passed to the Camera component*) If this flag is given in the option with any value, the video to be recorded will be mute. If nothing is specified, video will NOT be muted.  
+ **Note:** The recommended way of recording audio without sound passing captureAudio: false to the Camera component.
+ The `mute` parameter is likely to become deprecated in the near future.
+ 
+ - `path` (file path on disk). Specifies the path on disk to record the video to. You can use the same `uri` returned to continue recording across start/stops
 
  The promise will be fulfilled with an object with some of the following properties:
 
- - `uri`: returns the path to the video saved on your app's cache directory.
+ - `uri`: (string) the path to the video saved on your app's cache directory.
+
+- `videoOrientation`: (number) orientation of the video
+
+ - `deviceOrientation`: (number) orientation of the device
 
  - `iOS` `codec`: the codec of the recorded video. One of `RNCamera.Constants.VideoCodec`
 
  #### `stopRecording: void`
 
  Should be called after recordAsync() to make the promise be fulfilled and get the video uri.
+ 
+ #### `pausePreview: void`
+
+ Pauses the preview. The preview can be resumed again by using resumePreview().
+
+ #### `resumePreview: void`
+
+ Resumes the preview after pausePreview() has been called.
 
  #### `Android` `getSupportedRatiosAsync(): Promise`
 
  Android only. Returns a promise. The promise will be fulfilled with an object with an array containing strings with all camera aspect ratios supported by the device.
 
+ #### `iOS` `isRecording(): Promise<boolean>`
+
+ iOS only. Returns a promise. The promise will be fulfilled with a boolean indicating if currently recording is started or stopped.
+
 ## Subviews
 This component supports subviews, so if you wish to use the camera view as a background or if you want to layout buttons/images/etc. inside the camera then you can do that.
+
+## Testing
+
+To learn about how to test components which uses `RNCamera` check its [documentation about testing](./tests.md).
 
 ## Example
 
